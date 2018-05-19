@@ -11,8 +11,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
-	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
-	gen "github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/generator"
+	"github.com/peernova-private/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
+	gen "github.com/peernova-private/grpc-gateway/protoc-gen-grpc-gateway/generator"
 )
 
 var (
@@ -45,6 +45,9 @@ func (g *generator) Generate(targets []*descriptor.File) ([]*plugin.CodeGenerato
 		json.Indent(&formatted, []byte(code), "", "  ")
 
 		name := file.GetName()
+		if file.GoPkg.Path != "" {
+			name = fmt.Sprintf("%s/%s", file.GoPkg.Path, filepath.Base(name))
+		}
 		ext := filepath.Ext(name)
 		base := strings.TrimSuffix(name, ext)
 		output := fmt.Sprintf("%s.swagger.json", base)
