@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/peernova-private/grpc-gateway/examples/proto/examplepb"
-	gwruntime "github.com/peernova-private/grpc-gateway/runtime"
+	"github.com/grpc-ecosystem/grpc-gateway/examples/proto/examplepb"
+	gwruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
 )
 

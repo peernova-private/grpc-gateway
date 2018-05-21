@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"context"
-	"github.com/peernova-private/grpc-gateway/runtime"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc/metadata"
 )
 

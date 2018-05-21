@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"context"
-	"github.com/peernova-private/grpc-gateway/runtime"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
