@@ -27,6 +27,7 @@ type generator struct {
 type wrapper struct {
 	fileName string
 	swagger  *swaggerObject
+	PkgPath  string
 }
 
 // New returns a new generator which generates grpc gateway files.
@@ -66,8 +67,8 @@ func encodeSwagger(file *wrapper) *plugin.CodeGeneratorResponse_File {
 	enc.SetIndent("", "  ")
 	enc.Encode(*file.swagger)
 	name := file.fileName
-	if file.GoPkg.Path != "" {
-		name = fmt.Sprintf("%s/%s", file.GoPkg.Path, filepath.Base(name))
+	if file.PkgPath != "" {
+		name = fmt.Sprintf("%s/%s", file.PkgPath, filepath.Base(name))
 	}
 	ext := filepath.Ext(name)
 	base := strings.TrimSuffix(name, ext)
@@ -118,6 +119,7 @@ func (g *generator) Generate(targets []*descriptor.File) ([]*plugin.CodeGenerato
 		swaggers = append(swaggers, &wrapper{
 			fileName: file.GetName(),
 			swagger:  swagger,
+			PkgPath: file.GoPkg.Path,
 		})
 	}
 
