@@ -73,6 +73,10 @@ func testABEClientCreate(t *testing.T, cl *abe.ABitOfEverythingServiceApi) {
 		Sint32Value:              2147483647,
 		Sint64Value:              "4611686018427387903",
 		NonConventionalNameValue: "camelCase",
+		EnumValue:                abe.ExamplepbNumericEnum{},
+		PathEnumValue:            abe.PathenumPathEnum{},
+		NestedPathEnumValue:      abe.MessagePathEnumNestedPathEnum{},
+		EnumValueAnnotation:      abe.ExamplepbNumericEnum{},
 	}
 	resp, _, err := cl.Create(
 		want.FloatValue,
@@ -90,6 +94,10 @@ func testABEClientCreate(t *testing.T, cl *abe.ABitOfEverythingServiceApi) {
 		want.Sint32Value,
 		want.Sint64Value,
 		want.NonConventionalNameValue,
+		want.EnumValue.String(),
+		want.PathEnumValue.String(),
+		want.NestedPathEnumValue.String(),
+		want.EnumValueAnnotation.String(),
 	)
 	if err != nil {
 		t.Errorf("cl.Create(%#v) failed with %v; want success", want, err)
@@ -123,6 +131,9 @@ func testABEClientCreateBody(t *testing.T, cl *abe.ABitOfEverythingServiceApi) {
 		Sint32Value:              2147483647,
 		Sint64Value:              "4611686018427387903",
 		NonConventionalNameValue: "camelCase",
+		EnumValue:                abe.ExamplepbNumericEnum{},
+		PathEnumValue:            abe.PathenumPathEnum{},
+		NestedPathEnumValue:      abe.MessagePathEnumNestedPathEnum{},
 
 		Nested: []abe.ABitOfEverythingNested{
 			{

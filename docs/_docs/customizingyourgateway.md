@@ -7,6 +7,7 @@ order: 101
 # Customizing your gateway
 
 ## Message serialization
+### Custom serializer
 
 You might want to serialize request/response messages in MessagePack instead of JSON, for example.
 
@@ -19,6 +20,13 @@ You might want to serialize request/response messages in MessagePack instead of 
    ```
 
 You can see [the default implementation for JSON](https://github.com/grpc-ecosystem/grpc-gateway/blob/master/runtime/marshal_jsonpb.go) for reference.
+
+### Using camelCase for JSON
+
+The protocol buffer compiler generates camelCase JSON tags that can be used with jsonpb package. By default jsonpb Marshaller uses `OrigName: true` which uses the exact case used in the proto files. To use camelCase for the JSON representation,
+   ```go
+   mux := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{OrigName:false}))
+   ```
 
 ## Mapping from HTTP request headers to gRPC client metadata
 You might not like [the default mapping rule](http://godoc.org/github.com/grpc-ecosystem/grpc-gateway/runtime#DefaultHeaderMatcher) and might want to pass through all the HTTP headers, for example.
@@ -59,8 +67,113 @@ Or you might want to mutate the response messages to be returned.
    mux := runtime.NewServeMux(runtime.WithForwardResponseOption(myFilter))
    ```
 
+## OpenTracing Support
+
+If your project uses [OpenTracing](https://github.com/opentracing/opentracing-go) and you'd like spans to propagate through the gateway, you can add some middleware which parses the incoming HTTP headers to create a new span correctly.
+
+```go
+import (
+   ...
+   "github.com/opentracing/opentracing-go"
+   "github.com/opentracing/opentracing-go/ext"
+)
+
+var grpcGatewayTag = opentracing.Tag{Key: string(ext.Component), Value: "grpc-gateway"}
+
+func tracingWrapper(h http.Handler) http.Handler {
+  return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    parentSpanContext, err := opentracing.GlobalTracer().Extract(
+      opentracing.HTTPHeaders,
+      opentracing.HTTPHeadersCarrier(r.Header))
+    if err == nil || err == opentracing.ErrSpanContextNotFound {
+      serverSpan := opentracing.GlobalTracer().StartSpan(
+        "ServeHTTP",
+        // this is magical, it attaches the new span to the parent parentSpanContext, and creates an unparented one if empty.
+        ext.RPCServerOption(parentSpanContext),
+        grpcGatewayTag,
+      )
+      r = r.WithContext(opentracing.ContextWithSpan(r.Context(), serverSpan))
+      defer serverSpan.Finish()
+    }
+    h.ServeHTTP(w, r)
+  })
+}
+
+// Then just wrap the mux returned by runtime.NewServeMux() like this
+if err := http.ListenAndServe(":8080", tracingWrapper(mux)); err != nil {
+  log.Fatalf("failed to start gateway server on 8080: %v", err)
+}
+```
+
 ## Error handler
 http://mycodesmells.com/post/grpc-gateway-error-handler
+
+## Stream Error Handler
+The error handler described in the previous section applies only
+to RPC methods that have a unary response.
+
+When the method has a streaming response, grpc-gateway handles
+that by emitting a newline-separated stream of "chunks". Each
+chunk is an envelope that can container either a response message
+or an error. Only the last chunk will include an error, and only
+when the RPC handler ends abnormally (i.e. with an error code).
+
+Because of the way the errors are included in the response body,
+the other error handler signature is insufficient. So for server
+streams, you must install a _different_ error handler:
+
+```go
+mux := runtime.NewServeMux(
+	runtime.WithStreamErrorHandler(handleStreamError))
+```
+
+The signature of the handler is much more rigid because we need
+to know the structure of the error payload in order to properly
+encode the "chunk" schema into a Swagger/OpenAPI spec.
+
+So the function must return a `*runtime.StreamError`. The handler
+can choose to omit some fields and can filter/transform the original
+error, such as stripping stack traces from error messages.
+
+Here's an example custom handler:
+```go
+// handleStreamError overrides default behavior for computing an error
+// message for a server stream.
+//
+// It uses a default "502 Bad Gateway" HTTP code; only emits "safe"
+// messages; and does not set gRPC code or details fields (so they will
+// be omitted from the resulting JSON object that is sent to client).
+func handleStreamError(ctx context.Context, err error) *runtime.StreamError {
+	code := http.StatusBadGateway
+	msg := "unexpected error"
+	if s, ok := status.FromError(err); ok {
+		code = runtime.HTTPStatusFromCode(s.Code())
+		// default message, based on the name of the gRPC code
+		msg = code.String()
+		// see if error details include "safe" message to send
+		// to external callers
+		for _, msg := s.Details() {
+			if safe, ok := msg.(*SafeMessage); ok {
+				msg = safe.Text
+				break
+			}
+		}
+	}
+	return &runtime.StreamError{
+	    HttpCode:   int32(code),
+	    HttpStatus: http.StatusText(code),
+	    Message:    msg,
+	}
+}
+```
+
+If no custom handler is provided, the default stream error handler
+will include any gRPC error attributes (code, message, detail messages),
+if the error being reported includes them. If the error does not have
+these attributes, a gRPC code of `Unknown` (2) is reported. The default
+handler will also include an HTTP code and status, which is derived
+from the gRPC code (or set to `"500 Internal Server Error"` when
+the source error has no gRPC attributes).
 
 ## Replace a response forwarder per method
 You might want to keep the behavior of the current marshaler but change only a message forwarding of a certain API method.
