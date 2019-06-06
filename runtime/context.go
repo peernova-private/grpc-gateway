@@ -35,6 +35,8 @@ const metadataHeaderBinarySuffix = "-Bin"
 const xForwardedFor = "X-Forwarded-For"
 const xForwardedHost = "X-Forwarded-Host"
 
+// endpoint is the request URL path that will be used in monitoring metrics collection
+const endpointURLPath = "endpoint-url-path"
 var (
 	// DefaultContextTimeout is used for gRPC call context.WithTimeout whenever a Grpc-Timeout inbound
 	// header isn't present. If the value is 0 the sent `context` will not have a timeout.
@@ -106,6 +108,8 @@ func AnnotateContext(ctx context.Context, mux *ServeMux, req *http.Request) (con
 			grpclog.Infof("invalid remote addr: %s", addr)
 		}
 	}
+	// include endpoint for creating metrics in monitoring
+	pairs = append(pairs, strings.ToLower(endpointURLPath), req.URL.EscapedPath())
 
 	if timeout != 0 {
 		ctx, _ = context.WithTimeout(ctx, timeout)
